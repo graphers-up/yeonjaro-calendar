@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>연자로 현상소 운영일정</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:#f5f5f0;padding:2rem;color:#222}
+.wrap{max-width:960px;margin:0 auto}
+h1{font-size:20px;font-weight:500;margin-bottom:1.5rem}
+.nav{display:flex;align-items:center;gap:12px;margin-bottom:1.5rem}
+.nav button{background:none;border:1px solid #ccc;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:13px;color:#222}
+.nav button:hover{background:#eee}
+.month-title{font-size:18px;font-weight:500;flex:1;text-align:center}
+.calendar{border:1px solid #ddd;border-radius:12px;overflow:hidden;background:#fff}
+.dow-row{display:grid;grid-template-columns:repeat(7,1fr);background:#f0ede8}
+.dow{text-align:center;padding:8px 0;font-size:12px;color:#888;font-weight:500}
+.days-grid{display:grid;grid-template-columns:repeat(7,1fr)}
+.day{min-height:110px;border-top:1px solid #eee;border-right:1px solid #eee;padding:6px;background:#fff;position:relative}
+.day:nth-child(7n){border-right:none}
+.day-num{font-size:12px;color:#999;margin-bottom:4px}
+.day.is-holiday{background:#fff5f5}
+.day.is-holiday .day-num{color:#c0392b;font-weight:500}
+.holiday-name{font-size:10px;color:#c0392b;margin-bottom:2px;font-weight:500}
+.day.other-month{background:#fafafa}
+.day.other-month .day-num{color:#ccc}
+.event-block{border-radius:4px;margin-bottom:3px;overflow:hidden;cursor:pointer}
+.event-block:hover{opacity:0.85}
+.event-title-row{display:flex;align-items:center;justify-content:space-between;padding:2px 5px;font-size:11px;line-height:1.4}
+.event-del{opacity:0;font-size:10px;cursor:pointer;padding:0 2px}
+.event-block:hover .event-del{opacity:1}
+.event-members-row{padding:1px 5px 3px;font-size:10px;font-weight:500}
+.add-btn{font-size:11px;color:#bbb;cursor:pointer;padding:2px 0;display:block;opacity:0}
+.day:hover .add-btn{opacity:1}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:100;align-items:center;justify-content:center}
+.modal-bg.open{display:flex}
+.modal{background:#fff;border-radius:12px;border:1px solid #ddd;padding:1.5rem;max-width:420px;width:93%;max-height:90vh;overflow-y:auto}
+.modal h3{font-size:15px;font-weight:500;margin-bottom:1rem}
+.form-row{margin-bottom:10px}
+.form-row label{display:block;font-size:12px;color:#888;margin-bottom:4px}
+.form-row input,.form-row select,.form-row textarea{width:100%;font-size:13px;border:1px solid #ddd;border-radius:8px;padding:7px 10px;background:#fff;color:#222;font-family:inherit}
+.form-row textarea{resize:vertical;min-height:60px}
+.color-options{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.color-opt{width:28px;height:28px;border-radius:6px;cursor:pointer;border:2px solid transparent}
+.color-opt.selected{border-color:#222}
+.btn-row{display:flex;gap:8px;margin-top:1rem}
+.btn-row button{flex:1;padding:8px;border-radius:8px;border:1px solid #ddd;cursor:pointer;font-size:13px;background:none;color:#222;font-family:inherit}
+.btn-row button:hover{background:#f5f5f5}
+.btn-primary{background:#222!important;color:#fff!important;border-color:#222!important}
+.detail-row{font-size:13px;color:#666;line-height:1.7;margin-bottom:6px}
+.detail-label{font-weight:500;color:#222;display:block;margin-bottom:2px}
+.member-tag{display:inline-block;background:#f0f0f0;border:1px solid #ddd;border-radius:6px;padding:2px 10px;font-size:12px;margin:2px}
+.memo-box{background:#f5f5f0;border-radius:8px;padding:10px;font-size:13px;color:#555;line-height:1.6;white-space:pre-wrap;min-height:32px}
+.legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:1rem}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:12px;color:#888}
+.legend-dot{width:10px;height:10px;border-radius:2px}
+.divider{border:none;border-top:1px solid #eee;margin:12px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>연자로 현상소 — 운영일정</h1>
+<div class="nav">
+  <button onclick="changeMonth(-1)">이전</button>
+  <div class="month-title" id="month-title"></div>
+  <button onclick="changeMonth(1)">다음</button>
+</div>
+<div class="calendar">
+  <div class="dow-row">
+    <div class="dow">일</div><div class="dow">월</div><div class="dow">화</div>
+    <div class="dow">수</div><div class="dow">목</div><div class="dow">금</div><div class="dow">토</div>
+  </div>
+  <div class="days-grid" id="days-grid"></div>
+</div>
+<div class="legend" id="legend"></div>
+</div>
+
+<div class="modal-bg" id="detail-bg">
+  <div class="modal">
+    <h3 id="detail-title"></h3>
+    <div id="detail-body"></div>
+    <div class="btn-row">
+      <button onclick="openEdit()">수정</button>
+      <button onclick="copyEvent()">복사</button>
+      <button onclick="deleteEvent()">삭제</button>
+      <button onclick="closeMod('detail-bg')">닫기</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="edit-bg">
+  <div class="modal">
+    <h3 id="edit-title"></h3>
+    <div class="form-row"><label>회차명</label><input id="f-title"></div>
+    <div class="form-row"><label>날짜 (YYYY-MM-DD)</label><input id="f-date"></div>
+    <div class="form-row"><label>시간</label><input id="f-time"></div>
+    <div class="form-row"><label>내용</label><textarea id="f-desc"></textarea></div>
+    <div class="form-row"><label>비고</label><input id="f-note"></div>
+    <hr class="divider">
+    <div class="form-row"><label>참여 가능 인원</label><input id="f-members"></div>
+    <div class="form-row"><label>메모</label><textarea id="f-memo"></textarea></div>
+    <hr class="divider">
+    <div class="form-row">
+      <label>색상</label>
+      <div class="color-options" id="color-options"></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-primary" onclick="saveEvent()">저장</button>
+      <button onclick="closeMod('edit-bg')">취소</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var COLORS = [
+  {name:"보라",bg:"#CECBF6",text:"#3C3489",sub:"#EEEDFE",subtext:"#534AB7"},
+  {name:"초록",bg:"#9FE1CB",text:"#085041",sub:"#E1F5EE",subtext:"#0F6E56"},
+  {name:"주황",bg:"#FAC775",text:"#633806",sub:"#FAEEDA",subtext:"#854F0B"},
+  {name:"파랑",bg:"#B5D4F4",text:"#0C447C",sub:"#E6F1FB",subtext:"#185FA5"},
+  {name:"분홍",bg:"#F4C0D1",text:"#72243E",sub:"#FBEAF0",subtext:"#993556"},
+  {name:"회색",bg:"#D3D1C7",text:"#2C2C2A",sub:"#F1EFE8",subtext:"#5F5E5A"},
+  {name:"빨강",bg:"#F09595",text:"#501313",sub:"#FCEBEB",subtext:"#A32D2D"},
+  {name:"하늘",bg:"#85B7EB",text:"#042C53",sub:"#E6F1FB",subtext:"#185FA5"}
+];
+
+var HOLIDAYS = {
+  "1-1":"신정",
+  "2-16":"설날 연휴","2-17":"설날","2-18":"설날 연휴",
+  "3-1":"삼일절","3-2":"대체공휴일(삼일절)",
+  "5-1":"근로자의 날","5-5":"어린이날","5-24":"부처님오신날","5-25":"대체공휴일(부처님오신날)",
+  "6-3":"지방선거일","6-6":"현충일",
+  "7-17":"제헌절",
+  "8-15":"광복절","8-17":"대체공휴일(광복절)",
+  "9-24":"추석 연휴","9-25":"추석","9-26":"추석 연휴",
+  "10-3":"개천절","10-5":"대체공휴일(개천절)","10-9":"한글날",
+  "12-25":"크리스마스"
+};
+
+var DEFAULT_EVENTS = [
+  {id:1,month:6,day:22,title:"연구 1",desc:"농인 교육 참관 (교육 방법 연구)",time:"-",note:"6/22, 23, 25일 중 1일",members:"",memo:"",colorIdx:0},
+  {id:2,month:7,day:13,title:"연구 2",desc:"참여 인력 전체 기본 수어 수업",time:"-",note:"7/13, 14, 16일 중 1일",members:"",memo:"",colorIdx:0},
+  {id:3,month:9,day:10,title:"개별 농 1",desc:"개별 수업 (실내)",time:"2시간",note:"",members:"",memo:"",colorIdx:1},
+  {id:4,month:9,day:17,title:"개별 농 2",desc:"개별 수업 (실내)",time:"2시간",note:"",members:"",memo:"",colorIdx:1},
+  {id:5,month:9,day:18,title:"개별 청 1",desc:"개별 수업 (실내)",time:"2시간",note:"",members:"",memo:"",colorIdx:1},
+  {id:6,month:10,day:1,title:"공통 1",desc:"공통 수업 (실내)",time:"2시간",note:"",members:"",memo:"",colorIdx:2},
+  {id:7,month:10,day:8,title:"공통 2",desc:"공통 수업 (실내)",time:"2시간",note:"",members:"",memo:"",colorIdx:2},
+  {id:8,month:10,day:17,title:"공통 3",desc:"이론 + 출사",time:"3시간",note:"",members:"",memo:"",colorIdx:2},
+  {id:9,month:10,day:24,title:"공통 4",desc:"이론 + 출사",time:"3시간",note:"",members:"",memo:"",colorIdx:2},
+  {id:10,month:10,day:31,title:"공통 5",desc:"전시 참관 및 감상",time:"4시간",note:"",members:"",memo:"",colorIdx:2},
+  {id:11,month:11,day:5,title:"공통 6",desc:"전시 기획 및 준비",time:"2시간",note:"",members:"",memo:"",colorIdx:2},
+  {id:12,month:11,day:12,title:"연구 3",desc:"수업 자체평가 / 설문 확인 / 전시 자료 정리",time:"3시간",note:"11/9, 10, 12일 중 1일",members:"",memo:"",colorIdx:0},
+  {id:13,month:11,day:21,title:"공통 7",desc:"전시 준비 및 설치 / 발표회 2",time:"4시간",note:"",members:"",memo:"",colorIdx:2}
+];
+
+var events = [];
+var nextId = 14;
+var selectedId = null;
+var selectedColor = 0;
+var cur = new Date(2026, 5, 1);
+
+function load() {
+  try {
+    var s = localStorage.getItem("yeonjaro_v5");
+    if (s) {
+      var data = JSON.parse(s);
+      events = data.events;
+      nextId = data.nextId;
+    } else {
+      events = JSON.parse(JSON.stringify(DEFAULT_EVENTS));
+    }
+  } catch(e) {
+    events = JSON.parse(JSON.stringify(DEFAULT_EVENTS));
+  }
+}
+
+function save() {
+  try {
+    localStorage.setItem("yeonjaro_v5", JSON.stringify({events:events, nextId:nextId}));
+  } catch(e) {}
+}
+
+function changeMonth(d) {
+  cur = new Date(cur.getFullYear(), cur.getMonth() + d, 1);
+  render();
+}
+
+function render() {
+  var y = cur.getFullYear();
+  var m = cur.getMonth();
+  document.getElementById("month-title").textContent = y + "년 " + (m+1) + "월";
+  var first = new Date(y, m, 1).getDay();
+  var last = new Date(y, m+1, 0).getDate();
+  var prevLast = new Date(y, m, 0).getDate();
+  var grid = document.getElementById("days-grid");
+  grid.innerHTML = "";
+  var cells = [];
+  for (var i = first-1; i >= 0; i--) cells.push({day: prevLast-i, other: true});
+  for (var i = 1; i <= last; i++) cells.push({day: i, other: false});
+  while (cells.length % 7 !== 0) cells.push({day: cells.length - last - first + 2, other: true});
+
+  for (var ci = 0; ci < cells.length; ci++) {
+    var c = cells[ci];
+    var div = document.createElement("div");
+    div.className = "day" + (c.other ? " other-month" : "");
+    var num = document.createElement("div");
+    num.className = "day-num";
+    num.textContent = c.day;
+    div.appendChild(num);
+
+    if (!c.other) {
+      var hkey = (m+1) + "-" + c.day;
+      if (HOLIDAYS[hkey]) {
+        div.classList.add("is-holiday");
+        var hn = document.createElement("div");
+        hn.className = "holiday-name";
+        hn.textContent = HOLIDAYS[hkey];
+        div.appendChild(hn);
+      }
+    }
+
+    if (!c.other) {
+      var dayEvs = [];
+      for (var ei = 0; ei < events.length; ei++) {
+        if (events[ei].month === (m+1) && events[ei].day === c.day) dayEvs.push(events[ei]);
+      }
+      for (var ei = 0; ei < dayEvs.length; ei++) {
+        (function(ev) {
+          var col = COLORS[ev.colorIdx] || COLORS[0];
+          var block = document.createElement("div");
+          block.className = "event-block";
+
+          var tr = document.createElement("div");
+          tr.className = "event-title-row";
+          tr.style.background = col.bg;
+          tr.style.color = col.text;
+
+          var ts = document.createElement("span");
+          ts.textContent = ev.title;
+          ts.onclick = function() { openDetail(ev.id); };
+
+          var del = document.createElement("span");
+          del.className = "event-del";
+          del.textContent = "X";
+          del.onclick = function(e) { e.stopPropagation(); deleteById(ev.id); };
+
+          tr.appendChild(ts);
+          tr.appendChild(del);
+          block.appendChild(tr);
+
+          if (ev.members && ev.members.trim()) {
+            var mr = document.createElement("div");
+            mr.className = "event-members-row";
+            mr.style.background = col.sub;
+            mr.style.color = col.subtext;
+            mr.textContent = ev.members;
+            mr.onclick = function() { openDetail(ev.id); };
+            block.appendChild(mr);
+          }
+          div.appendChild(block);
+        })(dayEvs[ei]);
+      }
+
+      var add = document.createElement("span");
+      add.className = "add-btn";
+      add.textContent = "+ 추가";
+      (function(mo, da) {
+        add.onclick = function() { openAdd(mo, da); };
+      })(m+1, c.day);
+      div.appendChild(add);
+    }
+    grid.appendChild(div);
+  }
+
+  renderLegend();
+}
+
+function renderLegend() {
+  var leg = document.getElementById("legend");
+  leg.innerHTML = "";
+  for (var i = 0; i < COLORS.length; i++) {
+    var item = document.createElement("div");
+    item.className = "legend-item";
+    var dot = document.createElement("div");
+    dot.className = "legend-dot";
+    dot.style.background = COLORS[i].bg;
+    item.appendChild(dot);
+    item.appendChild(document.createTextNode(COLORS[i].name));
+    leg.appendChild(item);
+  }
+}
+
+function buildColorOptions(selected) {
+  var wrap = document.getElementById("color-options");
+  wrap.innerHTML = "";
+  selectedColor = selected || 0;
+  for (var i = 0; i < COLORS.length; i++) {
+    (function(idx) {
+      var opt = document.createElement("div");
+      opt.className = "color-opt" + (idx === selectedColor ? " selected" : "");
+      opt.style.background = COLORS[idx].bg;
+      opt.title = COLORS[idx].name;
+      opt.onclick = function() {
+        selectedColor = idx;
+        var opts = document.querySelectorAll(".color-opt");
+        for (var j = 0; j < opts.length; j++) opts[j].classList.remove("selected");
+        opt.classList.add("selected");
+      };
+      wrap.appendChild(opt);
+    })(i);
+  }
+}
+
+function pad(n) { return n < 10 ? "0" + n : String(n); }
+
+function openAdd(month, day) {
+  selectedId = null;
+  document.getElementById("edit-title").textContent = "일정 추가";
+  document.getElementById("f-title").value = "";
+  document.getElementById("f-date").value = "2026-" + pad(month) + "-" + pad(day);
+  document.getElementById("f-time").value = "";
+  document.getElementById("f-desc").value = "";
+  document.getElementById("f-note").value = "";
+  document.getElementById("f-members").value = "";
+  document.getElementById("f-memo").value = "";
+  buildColorOptions(0);
+  openMod("edit-bg");
+}
+
+function openDetail(id) {
+  selectedId = id;
+  var e = null;
+  for (var i = 0; i < events.length; i++) { if (events[i].id === id) { e = events[i]; break; } }
+  if (!e) return;
+  var col = COLORS[e.colorIdx] || COLORS[0];
+  document.getElementById("detail-title").textContent = e.title;
+  var dateStr = "2026년 " + e.month + "월 " + e.day + "일" + (e.note ? " (" + e.note + ")" : "");
+  var html = "";
+  html += "<div class='detail-row'>날짜: " + dateStr + "</div>";
+  html += "<div class='detail-row'>시간: " + (e.time || "—") + "</div>";
+  html += "<div class='detail-row'>내용: " + (e.desc || "—") + "</div>";
+  if (e.members && e.members.trim()) {
+    var mArr = e.members.split(",");
+    var tags = "";
+    for (var i = 0; i < mArr.length; i++) {
+      tags += "<span class='member-tag'>" + mArr[i].trim() + "</span>";
+    }
+    html += "<div class='detail-row'><span class='detail-label'>참여 가능 인원</span>" + tags + "</div>";
+  }
+  html += "<div class='detail-row'><span class='detail-label'>메모</span><div class='memo-box'>" + (e.memo || "—") + "</div></div>";
+  document.getElementById("detail-body").innerHTML = html;
+  openMod("detail-bg");
+}
+
+function openEdit() {
+  var e = null;
+  for (var i = 0; i < events.length; i++) { if (events[i].id === selectedId) { e = events[i]; break; } }
+  if (!e) return;
+  document.getElementById("edit-title").textContent = "일정 수정";
+  document.getElementById("f-title").value = e.title || "";
+  document.getElementById("f-date").value = "2026-" + pad(e.month) + "-" + pad(e.day);
+  document.getElementById("f-time").value = e.time || "";
+  document.getElementById("f-desc").value = e.desc || "";
+  document.getElementById("f-note").value = e.note || "";
+  document.getElementById("f-members").value = e.members || "";
+  document.getElementById("f-memo").value = e.memo || "";
+  buildColorOptions(e.colorIdx || 0);
+  closeMod("detail-bg");
+  openMod("edit-bg");
+}
+
+function saveEvent() {
+  var title = document.getElementById("f-title").value.trim();
+  var dateStr = document.getElementById("f-date").value.trim();
+  var time = document.getElementById("f-time").value.trim();
+  var desc = document.getElementById("f-desc").value.trim();
+  var note = document.getElementById("f-note").value.trim();
+  var members = document.getElementById("f-members").value.trim();
+  var memo = document.getElementById("f-memo").value.trim();
+  var colorIdx = selectedColor;
+
+  if (!title) { alert("회차명을 입력해주세요."); return; }
+  if (!dateStr) { alert("날짜를 입력해주세요."); return; }
+
+  var parts = dateStr.split("-");
+  var month = parseInt(parts[1], 10);
+  var day = parseInt(parts[2], 10);
+
+  if (isNaN(month) || isNaN(day)) { alert("날짜 형식이 맞지 않아요. YYYY-MM-DD로 입력해주세요."); return; }
+
+  if (selectedId) {
+    for (var i = 0; i < events.length; i++) {
+      if (events[i].id === selectedId) {
+        events[i].title = title;
+        events[i].month = month;
+        events[i].day = day;
+        events[i].time = time;
+        events[i].desc = desc;
+        events[i].note = note;
+        events[i].members = members;
+        events[i].memo = memo;
+        events[i].colorIdx = colorIdx;
+        break;
+      }
+    }
+  } else {
+    events.push({id: nextId++, month: month, day: day, title: title, desc: desc, time: time, note: note, members: members, memo: memo, colorIdx: colorIdx});
+  }
+
+  save();
+  closeMod("edit-bg");
+  render();
+}
+
+function copyEvent() {
+  var e = events.filter(function(x){return x.id===selectedId;})[0];
+  if (!e) return;
+  document.getElementById("edit-title").textContent = "일정 복사";
+  document.getElementById("f-title").value = e.title;
+  document.getElementById("f-date").value = "2026-" + pad(e.month) + "-" + pad(e.day);
+  document.getElementById("f-time").value = e.time || "";
+  document.getElementById("f-desc").value = e.desc || "";
+  document.getElementById("f-note").value = e.note || "";
+  document.getElementById("f-members").value = e.members || "";
+  document.getElementById("f-memo").value = e.memo || "";
+  buildColorOptions(e.colorIdx || 0);
+  selectedId = null;
+  closeMod("detail-bg");
+  openMod("edit-bg");
+}
+
+function deleteEvent() {
+  deleteById(selectedId);
+  closeMod("detail-bg");
+}
+
+function deleteById(id) {
+  var newEvents = [];
+  for (var i = 0; i < events.length; i++) { if (events[i].id !== id) newEvents.push(events[i]); }
+  events = newEvents;
+  save();
+  render();
+}
+
+function openMod(id) {
+  var el = document.getElementById(id);
+  el.style.display = "flex";
+  setTimeout(function() { el.classList.add("open"); }, 10);
+  el.onclick = function(ev) { if (ev.target === el) closeMod(id); };
+}
+
+function closeMod(id) {
+  var el = document.getElementById(id);
+  el.classList.remove("open");
+  el.style.display = "none";
+}
+
+load();
+render();
+</script>
+</body>
+</html>
